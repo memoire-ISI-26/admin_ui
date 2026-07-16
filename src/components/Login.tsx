@@ -47,8 +47,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     <div className="login-wrapper">
       <div className="login-card">
         <div className="login-header">
-          <div className="logo-box">M</div>
-          <h1 className="login-title">MAX IT</h1>
+          <div className="logo-box">MP</div>
+          <h1 className="login-title">MAX IT PRO</h1>
           <p className="login-subtitle">Console d'Administration</p>
         </div>
 
@@ -64,13 +64,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="form-group">
             <label className="form-label" htmlFor="identifier">
-              Identifiant / Numéro
+              Identifiant
             </label>
             <input
               id="identifier"
               type="text"
               className="form-control"
-              placeholder="ex: admin ou 77xxxxxxx"
+              placeholder="identifiant"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               disabled={loading}
