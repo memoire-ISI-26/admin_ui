@@ -38,7 +38,7 @@ export const Statistics: React.FC = () => {
       setEvents(eventsRes || []);
     } catch (err: any) {
       console.error('Error loading stats data', err);
-      setErrorMessage("Impossible d'interroger les microservices (user-service ou tracking-service) pour compiler les statistiques.");
+      setErrorMessage("En cours de maintenance. Veuillez patienter.");
     } finally {
       setLoading(false);
     }
@@ -82,21 +82,24 @@ export const Statistics: React.FC = () => {
 
   // 1. Most used services
   const serviceCounts: Record<string, number> = {};
+  let totalFilteredEvents = 0;
   events.forEach(e => {
     if (!e.eventType) return;
+    // Exclure LOGIN et LOGOUT pour ne pas fausser les stats d'utilisation fonctionnelle
+    if (e.eventType === 'LOGIN' || e.eventType === 'LOGOUT') return;
     serviceCounts[e.eventType] = (serviceCounts[e.eventType] || 0) + 1;
+    totalFilteredEvents++;
   });
 
   const serviceLabels: Record<string, string> = {
-    LOGIN: 'Connexions',
-    TRANSFER: "Transferts d'argent",
-    DEPOSIT: "Dépôts de fonds",
-    WITHDRAW: "Retraits de fonds",
-    ACHAT_PASS_INTERNET: 'Pass Internet',
-    ACHAT_PASS_ILLIMIX: 'Pass Illimix',
-    ACHAT_PASS_ILLIFLEX: 'Pass Illiflex',
+    TRANSFERT: "Transferts d'argent",
+    DEPOT: "Dépôts de fonds",
+    RETRAIT: "Retraits de fonds",
+    ACHAT_INTERNET: 'Pass Internet',
+    ACHAT_ILLIMIX: 'Pass Illimix',
+    ACHAT_ILLIFLEX: 'Pass Illiflex',
     ACHAT_CREDIT: 'Achat de Crédit',
-    ACHAT_RAPIDO: 'Paiements Rapido',
+    PAIEMENT_RAPIDO: 'Paiements Rapido',
     PASSWORD_UPDATE: 'Mises à jour Profil'
   };
 
@@ -108,7 +111,7 @@ export const Statistics: React.FC = () => {
     }))
     .sort((a, b) => b.count - a.count);
 
-  const totalEvents = events.length || 1;
+  const totalEvents = totalFilteredEvents || 1;
 
   // 2. Age distribution
   let ageBuckets = {
@@ -139,7 +142,7 @@ export const Statistics: React.FC = () => {
     { label: '50+ ans', count: ageBuckets.senior, pct: (ageBuckets.senior / totalClientsWithAge) * 100 }
   ];
 
-  // 3. Revenue calculations (except Rapido)
+  // 3. Revenue calculations
   let revenue = {
     internet: 0,
     illimix: 0,
@@ -148,11 +151,11 @@ export const Statistics: React.FC = () => {
   };
 
   events.forEach(e => {
-    if (e.eventType === 'ACHAT_PASS_INTERNET') {
+    if (e.eventType === 'ACHAT_INTERNET') {
       revenue.internet += getAmountFromPayload(e.payload);
-    } else if (e.eventType === 'ACHAT_PASS_ILLIMIX') {
+    } else if (e.eventType === 'ACHAT_ILLIMIX') {
       revenue.illimix += getAmountFromPayload(e.payload);
-    } else if (e.eventType === 'ACHAT_PASS_ILLIFLEX') {
+    } else if (e.eventType === 'ACHAT_ILLIFLEX') {
       revenue.illiflex += getAmountFromPayload(e.payload);
     } else if (e.eventType === 'ACHAT_CREDIT') {
       revenue.credit += getAmountFromPayload(e.payload);
@@ -246,7 +249,7 @@ export const Statistics: React.FC = () => {
           {/* Stats Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
             <div className="card-stat" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>CHIFFRE D'AFFAIRES HORS RAPIDO</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>CHIFFRE D'AFFAIRES</span>
               <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--orange)', fontFamily: 'var(--font-title)' }}>
                 {totalRevenue.toLocaleString()} FCFA
               </span>
@@ -332,10 +335,10 @@ export const Statistics: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Chiffre d'affaires (hors Rapido) */}
+            {/* 3. Chiffre d'affaires */}
             <div style={{ backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
               <h3 style={{ fontFamily: 'var(--font-title)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px', color: 'var(--text-main)' }}>
-                Volume des ventes par offre (hors Rapido)
+                Volume des ventes par offre
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--border)' }}>
