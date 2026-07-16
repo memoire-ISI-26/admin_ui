@@ -30,7 +30,7 @@ export const ClientManager: React.FC = () => {
       setClients(response?.data || []);
     } catch (err: any) {
       console.error('API error fetching clients', err);
-      setErrorMessage("Le microservice de gestion des utilisateurs (user-service) est inaccessible ou en cours de maintenance. Veuillez contacter l'administrateur.");
+      setErrorMessage("Ce service est inaccessible ou en cours de maintenance. Veuillez contacter l'administrateur.");
     } finally {
       setLoading(false);
     }
@@ -243,6 +243,7 @@ export const ClientManager: React.FC = () => {
             <table className="custom-table">
               <thead>
                 <tr>
+                  <th>ID</th>
                   <th>Numéro (MSISDN)</th>
                   <th>Prénom & Nom</th>
                   <th>Date de naissance</th>

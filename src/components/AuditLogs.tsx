@@ -30,7 +30,7 @@ export const AuditLogs: React.FC = () => {
       setEvents(sorted);
     } catch (err: any) {
       console.error('API error fetching tracking events', err);
-      setErrorMessage("Le microservice d'audit et de tracking (tracking-service) est actuellement indisponible ou en cours de maintenance.");
+      setErrorMessage("Actuellement indisponible ou en cours de maintenance. Veuillez patienter.");
     } finally {
       setLoading(false);
     }

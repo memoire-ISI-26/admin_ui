@@ -79,7 +79,7 @@ export const PassManager: React.FC = () => {
       }
     } catch (err: any) {
       console.error(`Error fetching ${activeTab} passes`, err);
-      setErrorMessage("Le microservice de tarification (pricing-service) est inaccessible ou en cours de maintenance. Veuillez contacter l'administrateur.");
+      setErrorMessage("Ce service est inaccessible ou en cours de maintenance. Veuillez contacter l'administrateur.");
     } finally {
       setLoading(false);
     }

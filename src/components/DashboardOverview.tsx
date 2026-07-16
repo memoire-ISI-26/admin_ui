@@ -58,7 +58,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         setRecentEvents(eventList.slice(0, 5));
       } catch (err: any) {
         console.error('Error fetching dashboard stats', err);
-        setErrorMessage('Un ou plusieurs microservices du système (users, pricing ou tracking) sont hors-ligne ou en cours de maintenance. Veuillez contacter l\'administrateur système.');
+        setErrorMessage('En cours de maintenance. Veuillez contacter l\'administrateur système.');
       } finally {
         setLoading(false);
       }
@@ -93,7 +93,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           Tableau de Bord
         </h2>
         <p style={{ color: 'var(--text-muted)' }}>
-          Bienvenue dans la console d'administration. Voici un résumé de l'état actuel de la plateforme Max It.
+          Bienvenue dans la console d'administration. Voici un résumé de l'état actuel de la plateforme Max It Pro.
         </p>
       </div>
 
