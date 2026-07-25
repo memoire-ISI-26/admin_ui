@@ -25,6 +25,18 @@ export const Statistics: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
   const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const [searchMsisdn, setSearchMsisdn] = useState('');
+  const [activeMsisdn, setActiveMsisdn] = useState('');
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setActiveMsisdn(searchMsisdn.trim());
+  };
+
+  const handleResetSearch = () => {
+    setSearchMsisdn('');
+    setActiveMsisdn('');
+  };
 
   const fetchStatsData = async () => {
     setLoading(true);
@@ -68,25 +80,46 @@ export const Statistics: React.FC = () => {
     }
   };
 
-  // Helper to extract purchase amount
+  // Helper to extract purchase amount (handling objects, stringified JSON, or raw numbers)
   const getAmountFromPayload = (payload: any): number => {
     if (!payload) return 0;
-    if (typeof payload === 'object') {
-      const val = payload.prix || payload.montant || payload.amount;
+    let obj = payload;
+    if (typeof payload === 'string') {
+      try {
+        obj = JSON.parse(payload);
+      } catch (e) {
+        const num = Number(payload);
+        if (!isNaN(num)) return num;
+        return 0;
+      }
+    }
+    if (obj && typeof obj === 'object') {
+      const val = obj.prix || obj.montant || obj.amount;
       if (val) return Number(val);
     }
     return 0;
   };
+
+  // --- Filtering ---
+  const currentMsisdn = activeMsisdn.trim();
+  const filteredEvents = currentMsisdn 
+    ? events.filter(e => e.msisdn === currentMsisdn)
+    : events;
+
+  const searchedClient = currentMsisdn
+    ? clients.find(c => c.number === currentMsisdn)
+    : null;
 
   // --- Calculations ---
 
   // 1. Most used services
   const serviceCounts: Record<string, number> = {};
   let totalFilteredEvents = 0;
-  events.forEach(e => {
+  filteredEvents.forEach(e => {
     if (!e.eventType) return;
-    // Exclure LOGIN et LOGOUT pour ne pas fausser les stats d'utilisation fonctionnelle
-    if (e.eventType === 'LOGIN' || e.eventType === 'LOGOUT') return;
+    // Exclure LOGIN, LOGOUT et REGISTER pour ne pas fausser les stats d'utilisation fonctionnelle
+    const typeUpper = e.eventType.toUpperCase();
+    if (typeUpper === 'LOGIN' || typeUpper === 'LOGOUT' || typeUpper === 'REGISTER') return;
     serviceCounts[e.eventType] = (serviceCounts[e.eventType] || 0) + 1;
     totalFilteredEvents++;
   });
@@ -95,11 +128,11 @@ export const Statistics: React.FC = () => {
     TRANSFERT: "Transferts d'argent",
     DEPOT: "Dépôts de fonds",
     RETRAIT: "Retraits de fonds",
-    ACHAT_INTERNET: 'Pass Internet',
-    ACHAT_ILLIMIX: 'Pass Illimix',
-    ACHAT_ILLIFLEX: 'Pass Illiflex',
+    ACHAT_PASS_INTERNET: 'Pass Internet',
+    ACHAT_PASS_ILLIMIX: 'Pass Illimix',
+    ACHAT_PASS_ILLIFLEX: 'Pass Illiflex',
     ACHAT_CREDIT: 'Achat de Crédit',
-    PAIEMENT_RAPIDO: 'Paiements Rapido',
+    ACHAT_RAPIDO: 'Paiements Rapido',
     PASSWORD_UPDATE: 'Mises à jour Profil'
   };
 
@@ -150,12 +183,12 @@ export const Statistics: React.FC = () => {
     credit: 0
   };
 
-  events.forEach(e => {
-    if (e.eventType === 'ACHAT_INTERNET') {
+  filteredEvents.forEach(e => {
+    if (e.eventType === 'ACHAT_PASS_INTERNET') {
       revenue.internet += getAmountFromPayload(e.payload);
-    } else if (e.eventType === 'ACHAT_ILLIMIX') {
+    } else if (e.eventType === 'ACHAT_PASS_ILLIMIX') {
       revenue.illimix += getAmountFromPayload(e.payload);
-    } else if (e.eventType === 'ACHAT_ILLIFLEX') {
+    } else if (e.eventType === 'ACHAT_PASS_ILLIFLEX') {
       revenue.illiflex += getAmountFromPayload(e.payload);
     } else if (e.eventType === 'ACHAT_CREDIT') {
       revenue.credit += getAmountFromPayload(e.payload);
@@ -166,7 +199,7 @@ export const Statistics: React.FC = () => {
 
   // 4. Hourly peak distribution
   const hourlyCounts = Array(24).fill(0);
-  events.forEach(e => {
+  filteredEvents.forEach(e => {
     if (!e.timestamp) return;
     try {
       const date = new Date(e.timestamp);
@@ -238,38 +271,100 @@ export const Statistics: React.FC = () => {
         </button>
       </div>
 
+      {/* Barre de recherche d'abonné */}
+      <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px', backgroundColor: 'var(--bg-card)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '12px', flexGrow: 1, maxWidth: '500px' }}>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Rechercher par numéro (ex: 775203112)..."
+            style={{ flexGrow: 1, padding: '8px 12px' }}
+            value={searchMsisdn}
+            onChange={(e) => setSearchMsisdn(e.target.value)}
+          />
+          <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px' }} disabled={loading}>
+            Rechercher
+          </button>
+          {activeMsisdn && (
+            <button type="button" className="btn btn-secondary" onClick={handleResetSearch} style={{ padding: '8px 16px' }}>
+              Réinitialiser
+            </button>
+          )}
+        </form>
+        {activeMsisdn && (
+          <div>
+            <span className="badge badge-orange" style={{ padding: '8px 12px', fontSize: '0.85rem' }}>
+              Statistiques pour l'abonné : <strong>{activeMsisdn}</strong>
+            </span>
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}>
             <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
           </svg>
         </div>
+      ) : activeMsisdn && filteredEvents.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', maxWidth: '600px', margin: '20px auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '2.5rem' }}>🔍</div>
+          <h3 style={{ fontFamily: 'var(--font-title)', fontWeight: 700, fontSize: '1.25rem', margin: 0 }}>Aucun usage enregistré</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+            Aucun événement d'activité ou d'usage n'a été enregistré pour le numéro <strong>{activeMsisdn}</strong>.
+          </p>
+          {searchedClient && (
+            <div style={{ border: '1px solid var(--border)', padding: '16px', borderRadius: 'var(--radius-md)', width: '100%', textAlign: 'left', marginTop: '10px' }}>
+              <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--text-main)' }}>Profil de l'abonné :</strong>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Nom : {searchedClient.firstName} {searchedClient.lastName}</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Date de naissance : {searchedClient.birthdate || '-'}</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Âge : {getAge(searchedClient.birthdate) || '-'} ans</div>
+            </div>
+          )}
+          <button className="btn btn-secondary" onClick={handleResetSearch} style={{ marginTop: '10px' }}>
+            Voir les statistiques globales
+          </button>
+        </div>
       ) : (
         <>
           {/* Stats Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
             <div className="card-stat" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>CHIFFRE D'AFFAIRES</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
+                {activeMsisdn ? "DÉPENSES DE L'ABONNÉ" : "CHIFFRE D'AFFAIRES"}
+              </span>
               <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--orange)', fontFamily: 'var(--font-title)' }}>
                 {totalRevenue.toLocaleString()} FCFA
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Cumulé sur les achats de pass & crédit</span>
-            </div>
-
-            <div className="card-stat" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>ÂGE MOYEN ESTIMÉ</span>
-              <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', fontFamily: 'var(--font-title)' }}>
-                {Math.round(clients.reduce((sum, c) => sum + (getAge(c.birthdate) || 28), 0) / (clients.length || 1))} ans
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                {activeMsisdn ? "Total dépensé par cet utilisateur" : "Cumulé sur les achats de pass & crédit"}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Calculé à partir des dates de naissance</span>
             </div>
 
             <div className="card-stat" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>PIC DE CHARGE HORAIRE</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
+                {activeMsisdn ? "ÂGE DE L'ABONNÉ" : "ÂGE MOYEN ESTIMÉ"}
+              </span>
+              <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', fontFamily: 'var(--font-title)' }}>
+                {activeMsisdn 
+                  ? (searchedClient ? `${getAge(searchedClient.birthdate)} ans` : "N/A")
+                  : `${Math.round(clients.reduce((sum, c) => sum + (getAge(c.birthdate) || 28), 0) / (clients.length || 1))} ans`}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                {activeMsisdn ? (searchedClient ? `Né le ${searchedClient.birthdate}` : "Abonné non enregistré dans l'annuaire") : "Calculé à partir des dates de naissance"}
+              </span>
+            </div>
+
+            <div className="card-stat" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
+                {activeMsisdn ? "PÉRIODE DE PRÉFÉRENCE" : "PIC DE CHARGE HORAIRE"}
+              </span>
               <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', fontFamily: 'var(--font-title)', marginTop: '8px', marginBottom: '8px' }}>
                 {peakPeriodLabel}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Période enregistrant le plus de requêtes</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                {activeMsisdn ? "Moment de la journée le plus actif pour cet abonné" : "Période enregistrant le plus de requêtes"}
+              </span>
             </div>
           </div>
 
@@ -306,33 +401,73 @@ export const Statistics: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Répartition par âge */}
+            {/* 2. Répartition par âge OU Fiche Profil */}
             <div style={{ backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-              <h3 style={{ fontFamily: 'var(--font-title)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px', color: 'var(--text-main)' }}>
-                Répartition par tranche d'âge
-              </h3>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '200px', padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
-                {ageData.map((d) => (
-                  <div key={d.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px', gap: '8px' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      {d.count}
-                    </span>
-                    <div 
-                      style={{ 
-                        width: '32px', 
-                        height: `${Math.max(d.pct * 1.5, 4)}px`, 
-                        backgroundColor: 'var(--orange)', 
-                        background: 'linear-gradient(180deg, var(--orange) 0%, rgba(255, 121, 0, 0.4) 100%)',
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'height 0.6s ease'
-                      }} 
-                    />
-                    <span style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', color: 'var(--text-main)', transform: 'rotate(-15deg)', marginTop: '5px' }}>
-                      {d.label}
-                    </span>
+              {searchedClient ? (
+                <>
+                  <h3 style={{ fontFamily: 'var(--font-title)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px', color: 'var(--text-main)' }}>
+                    Fiche Profil Abonné
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '10px' }}>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--orange)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 'bold' }}>
+                        {searchedClient.firstName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>
+                          {searchedClient.firstName} {searchedClient.lastName}
+                        </h4>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          Numéro : {searchedClient.number}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Date de naissance</span>
+                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{searchedClient.birthdate || '-'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Âge</span>
+                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{getAge(searchedClient.birthdate) || '-'} ans</strong>
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--border)', height: '1px', margin: '8px 0' }} />
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Statut d'Activité</span>
+                      <span className="badge badge-success">Actif (Transactions : {filteredEvents.length})</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </>
+              ) : (
+                <>
+                  <h3 style={{ fontFamily: 'var(--font-title)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px', color: 'var(--text-main)' }}>
+                    Répartition par tranche d'âge
+                  </h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '200px', padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
+                    {ageData.map((d) => (
+                      <div key={d.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px', gap: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                          {d.count}
+                        </span>
+                        <div 
+                          style={{ 
+                            width: '32px', 
+                            height: `${Math.max(d.pct * 1.5, 4)}px`, 
+                            backgroundColor: 'var(--orange)', 
+                            background: 'linear-gradient(180deg, var(--orange) 0%, rgba(255, 121, 0, 0.4) 100%)',
+                            borderRadius: '4px 4px 0 0',
+                            transition: 'height 0.6s ease'
+                          }} 
+                        />
+                        <span style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', color: 'var(--text-main)', transform: 'rotate(-15deg)', marginTop: '5px' }}>
+                          {d.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 3. Chiffre d'affaires */}
