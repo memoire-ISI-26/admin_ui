@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import type { ApiResponseWrapper } from '../utils/api';
 
-type PassType = 'internet' | 'illimix' | 'illiflex';
+type PassType = 'internet' | 'illimix' | 'illiflex' | 'international';
 
 interface Palier {
   id?: number;
@@ -33,6 +33,10 @@ interface PassIlliflex extends PassBase {
   paliers: Palier[];
 }
 
+interface PassInternational extends PassBase {
+  minutesAppels: number;
+}
+
 export const PassManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState<PassType>('internet');
   const [loading, setLoading] = useState(false);
@@ -44,6 +48,7 @@ export const PassManager: React.FC = () => {
   const [internetPasses, setInternetPasses] = useState<PassInternet[]>([]);
   const [illimixPasses, setIllimixPasses] = useState<PassIllimix[]>([]);
   const [illiflexPasses, setIlliflexPasses] = useState<PassIlliflex[]>([]);
+  const [internationalPasses, setInternationalPasses] = useState<PassInternational[]>([]);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -76,6 +81,9 @@ export const PassManager: React.FC = () => {
       } else if (activeTab === 'illiflex') {
         const res = await api.get<ApiResponseWrapper<PassIlliflex[]>>('/pricing/pass-illiflex');
         setIlliflexPasses(res?.data || []);
+      } else if (activeTab === 'international') {
+        const res = await api.get<ApiResponseWrapper<PassInternational[]>>('/pricing/pass-international');
+        setInternationalPasses(res?.data || []);
       }
     } catch (err: any) {
       console.error(`Error fetching ${activeTab} passes`, err);
@@ -185,6 +193,8 @@ export const PassManager: React.FC = () => {
     } else if (activeTab === 'illiflex') {
       body.nbMessagesFixe = formNbMessagesFixe;
       body.paliers = formPaliers;
+    } else if (activeTab === 'international') {
+      body.minutesAppels = formMinutesAppels;
     }
 
     try {
@@ -279,6 +289,12 @@ export const PassManager: React.FC = () => {
         >
           Pass Illiflex
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'international' ? 'active' : ''}`}
+          onClick={() => setActiveTab('international')}
+        >
+          Pass International
+        </button>
       </div>
 
       {/* Table Section */}
@@ -288,7 +304,8 @@ export const PassManager: React.FC = () => {
             Pass {activeTab.toUpperCase()} ({
               activeTab === 'internet' ? internetPasses.length :
               activeTab === 'illimix' ? illimixPasses.length :
-              illiflexPasses.length
+              activeTab === 'illiflex' ? illiflexPasses.length :
+              internationalPasses.length
             })
           </span>
           <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={fetchAllData}>
@@ -413,6 +430,38 @@ export const PassManager: React.FC = () => {
                   </tbody>
                 </>
               )}
+
+              {activeTab === 'international' && (
+                <>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Nom</th>
+                      <th>Prix</th>
+                      <th>Minutes Appels</th>
+                      <th>Période</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {internationalPasses.map((p) => (
+                      <tr key={p.id}>
+                        <td><code>#{p.id}</code></td>
+                        <td><span style={{ fontWeight: 600 }}>{p.nom}</span></td>
+                        <td><span style={{ color: 'var(--orange)', fontWeight: 600 }}>{p.prix} FCFA</span></td>
+                        <td>{p.minutesAppels} min</td>
+                        <td><span className="badge badge-orange">{p.periode}</span></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <button className="btn-icon-only edit" onClick={() => openEditModal(p)}><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                            <button className="btn-icon-only danger" onClick={() => handleDelete(p.id)}><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </>
+              )}
             </table>
           )}
         </div>
@@ -492,6 +541,20 @@ export const PassManager: React.FC = () => {
                       onChange={(e) => setFormVolumeData(Number(e.target.value))}
                       required
                       min="10"
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'international' && (
+                  <div className="form-group">
+                    <label className="form-label">Minutes d'appels International</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={formMinutesAppels}
+                      onChange={(e) => setFormMinutesAppels(Number(e.target.value))}
+                      required
+                      min="1"
                     />
                   </div>
                 )}
