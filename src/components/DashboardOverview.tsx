@@ -183,7 +183,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
             <div className="card-table-container" style={{ margin: 0 }}>
               <div className="card-header">
-                <h3 className="card-header-title">Événements d'Audit Récents</h3>
+                <h3 className="card-header-title">Événements Récents</h3>
                 <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => onNavigate('logs')}>
                   Voir tout
                 </button>
