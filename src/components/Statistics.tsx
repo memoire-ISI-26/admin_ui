@@ -27,6 +27,12 @@ export const Statistics: React.FC = () => {
   const [events, setEvents] = useState<TrackingEvent[]>([]);
   const [searchMsisdn, setSearchMsisdn] = useState('');
   const [activeMsisdn, setActiveMsisdn] = useState('');
+  const [hdfsEvents, setHdfsEvents] = useState<TrackingEvent[]>([]);
+  const [hdfsGlobalStats, setHdfsGlobalStats] = useState<{
+    serviceCounts: Record<string, number>;
+    revenue: { internet: number; illimix: number; illiflex: number; credit: number };
+    hourlyDistribution?: { nuit: number; matin: number; aprem: number; soir: number };
+  } | null>(null);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +48,19 @@ export const Statistics: React.FC = () => {
     setLoading(true);
     setErrorMessage('');
     try {
-      const [clientsRes, eventsRes] = await Promise.all([
+      const [clientsRes, eventsRes, hdfsStatsRes] = await Promise.all([
         api.get<ApiResponseWrapper<Client[]>>('/users/client/list'),
-        api.get<TrackingEvent[]>('/tracking/events')
+        api.get<TrackingEvent[]>('/tracking/events'),
+        api.get<ApiResponseWrapper<any>>('/personnalisation/usages/stats/global').catch(err => {
+          console.warn("Impossible de charger les stats globales HDFS", err);
+          return null;
+        })
       ]);
       setClients(clientsRes?.data || []);
       setEvents(eventsRes || []);
+      if (hdfsStatsRes?.data) {
+        setHdfsGlobalStats(hdfsStatsRes.data);
+      }
     } catch (err: any) {
       console.error('Error loading stats data', err);
       setErrorMessage("En cours de maintenance. Veuillez patienter.");
@@ -59,6 +72,60 @@ export const Statistics: React.FC = () => {
   useEffect(() => {
     fetchStatsData();
   }, []);
+
+  useEffect(() => {
+    if (!activeMsisdn) {
+      setHdfsEvents([]);
+      return;
+    }
+    
+    api.get<ApiResponseWrapper<any>>(`/personnalisation/usages/${activeMsisdn}`)
+      .then(res => {
+        const dataList = res?.data as any[];
+        if (dataList && dataList.length > 0) {
+          const mapped: TrackingEvent[] = [];
+          
+          const serviceToEvent: Record<string, { event: string; amount: number }> = {
+            'TELCO.SERVICES.PASS.DATA': { event: 'ACHAT_PASS_INTERNET', amount: 1000 },
+            'TELCO.SERVICES.PASS.ILLIMIX': { event: 'ACHAT_PASS_ILLIMIX', amount: 1500 },
+            'TELCO.SERVICES.PASS.ILLIFLEX': { event: 'ACHAT_PASS_ILLIFLEX', amount: 2000 },
+            'TELCO.SERVICES.PASS.VOICE': { event: 'ACHAT_CREDIT', amount: 1000 },
+            'TELCO.SERVICES.PASS.INTERNATIONAL': { event: 'ACHAT_INTERNATIONAL', amount: 5000 },
+            'OMY.SERVICES.TRANSFERT': { event: 'TRANSFERT', amount: 3000 },
+            'OMY.SERVICES.RETRAIT': { event: 'RETRAIT', amount: 3000 },
+            'DEPOT': { event: 'DEPOT', amount: 5000 },
+            'RAPIDO': { event: 'ACHAT_RAPIDO', amount: 2000 }
+          };
+
+          dataList.forEach(item => {
+            const source = item._source;
+            if (!source) return;
+            const services = source.liste_de_services || [];
+            const timestamp = source.last_date || source.date;
+            
+            services.forEach((srv: string) => {
+              const mappedInfo = serviceToEvent[srv] || { event: srv, amount: 0 };
+              mapped.push({
+                eventType: mappedInfo.event,
+                msisdn: activeMsisdn,
+                userId: activeMsisdn,
+                userRole: 'CLIENT',
+                payload: { amount: mappedInfo.amount },
+                timestamp: timestamp
+              });
+            });
+          });
+          
+          setHdfsEvents(mapped);
+        } else {
+          setHdfsEvents([]);
+        }
+      })
+      .catch(err => {
+        console.warn("Pas d'usages HDFS pour ce MSISDN", err);
+        setHdfsEvents([]);
+      });
+  }, [activeMsisdn]);
 
   // Helper to parse age
   const getAge = (birthdateStr: string): number | null => {
@@ -102,8 +169,12 @@ export const Statistics: React.FC = () => {
 
   // --- Filtering ---
   const currentMsisdn = activeMsisdn.trim();
-  const filteredEvents = currentMsisdn 
+  const mongoEvents = currentMsisdn 
     ? events.filter(e => e.msisdn === currentMsisdn)
+    : events;
+
+  const filteredEvents = currentMsisdn
+    ? [...mongoEvents, ...hdfsEvents]
     : events;
 
   const searchedClient = currentMsisdn
@@ -124,6 +195,27 @@ export const Statistics: React.FC = () => {
     totalFilteredEvents++;
   });
 
+  // Si on affiche les stats globales (aucun abonné recherché), on intègre les statistiques HDFS
+  if (!currentMsisdn && hdfsGlobalStats?.serviceCounts) {
+    const hdfsServiceToEvent: Record<string, string> = {
+      'TELCO.SERVICES.PASS.DATA': 'ACHAT_PASS_INTERNET',
+      'TELCO.SERVICES.PASS.ILLIMIX': 'ACHAT_PASS_ILLIMIX',
+      'TELCO.SERVICES.PASS.ILLIFLEX': 'ACHAT_PASS_ILLIFLEX',
+      'TELCO.SERVICES.PASS.VOICE': 'ACHAT_CREDIT',
+      'TELCO.SERVICES.PASS.INTERNATIONAL': 'ACHAT_INTERNATIONAL',
+      'OMY.SERVICES.TRANSFERT': 'TRANSFERT',
+      'OMY.SERVICES.RETRAIT': 'RETRAIT',
+      'DEPOT': 'DEPOT',
+      'RAPIDO': 'ACHAT_RAPIDO'
+    };
+
+    Object.entries(hdfsGlobalStats.serviceCounts).forEach(([hdfsSrv, count]) => {
+      const eventKey = hdfsServiceToEvent[hdfsSrv] || hdfsSrv;
+      serviceCounts[eventKey] = (serviceCounts[eventKey] || 0) + count;
+      totalFilteredEvents += count;
+    });
+  }
+
   const serviceLabels: Record<string, string> = {
     TRANSFERT: "Transferts d'argent",
     DEPOT: "Dépôts de fonds",
@@ -133,7 +225,30 @@ export const Statistics: React.FC = () => {
     ACHAT_PASS_ILLIFLEX: 'Pass Illiflex',
     ACHAT_CREDIT: 'Achat de Crédit',
     ACHAT_RAPIDO: 'Paiements Rapido',
-    PASSWORD_UPDATE: 'Mises à jour Profil'
+    PASSWORD_UPDATE: 'Mises à jour Profil',
+    // New services from HDFS
+    'TELCO.SERVICES.HOME_INTERNET': 'Internet Maison',
+    'TELCO.SERVICES.LOYALTY': 'Fidélité Orange',
+    'TELCO.SERVICES.SOS_CREDIT': 'SOS Crédit',
+    'TELCO.SERVICES.P2P_BONUS': 'P2P Bonus',
+    'TELCO.SERVICES.PASS.INTERNATIONAL': 'Pass Internationaux',
+    'TELCO.SERVICES.PASS.MIXEL': 'Pass Mixel',
+    'SONATELF_MAIN_PAGE': 'Sonatel',
+    'TELCO.SERVICES.PASS.TRAVEL': 'Pass Voyage',
+    'TELCO.SERVICES.P2P': 'P2P Transfert',
+    'TELCO.SERVICES.PASS.WIDO': 'Pass Wido',
+    'TELCO.SERVICES.LEISURE.DALAL': 'Dalal Tones',
+    'TELCO.SERVICES.SOS_PASS': 'SOS Pass',
+    'OMY.SERVICES.MASTERCARD': 'Mastercard',
+    'OMY.SERVICES.FINANCIERS': 'Services Financiers',
+    'OMY.SERVICES.PI': 'Paiement International',
+    'OMY.SERVICES.INTER_COMPTE': 'Transfert Inter-Compte',
+    'OMY.SERVICES.BILLERS': 'Factures',
+    'OMY.SERVICES.BILLERS.TER': 'TER / Transport',
+    'OBA.SERVICES.TIKTAK': 'TikTik / Orange Bank',
+    'CANALPLUS': 'Canal+',
+    'FLEXEAU': 'FlexEau',
+    'SENELEC_MAIN_PAGE': 'Senelec'
   };
 
   const sortedServices = Object.entries(serviceCounts)
@@ -195,6 +310,14 @@ export const Statistics: React.FC = () => {
     }
   });
 
+  // Si on affiche les stats globales (aucun abonné recherché), on intègre le chiffre d'affaires d'HDFS
+  if (!currentMsisdn && hdfsGlobalStats?.revenue) {
+    revenue.internet += hdfsGlobalStats.revenue.internet || 0;
+    revenue.illimix += hdfsGlobalStats.revenue.illimix || 0;
+    revenue.illiflex += hdfsGlobalStats.revenue.illiflex || 0;
+    revenue.credit += hdfsGlobalStats.revenue.credit || 0;
+  }
+
   const totalRevenue = revenue.internet + revenue.illimix + revenue.illiflex + revenue.credit;
 
   // 4. Hourly peak distribution
@@ -223,6 +346,13 @@ export const Statistics: React.FC = () => {
     else if (hour < 18) timePeriodBuckets.aprem += count;
     else timePeriodBuckets.soir += count;
   });
+
+  if (!currentMsisdn && hdfsGlobalStats?.hourlyDistribution) {
+    timePeriodBuckets.nuit += hdfsGlobalStats.hourlyDistribution.nuit || 0;
+    timePeriodBuckets.matin += hdfsGlobalStats.hourlyDistribution.matin || 0;
+    timePeriodBuckets.aprem += hdfsGlobalStats.hourlyDistribution.aprem || 0;
+    timePeriodBuckets.soir += hdfsGlobalStats.hourlyDistribution.soir || 0;
+  }
 
   const maxPeriodEntry = Object.entries(timePeriodBuckets).reduce(
     (max, current) => (current[1] > max[1] ? current : max),
@@ -516,7 +646,7 @@ export const Statistics: React.FC = () => {
                     {Math.round((maxPeriodEntry[1] / (totalEvents || 1)) * 100)}%
                   </text>
                   <text x="100" y="115" textAnchor="middle" fill="var(--text-muted)" fontSize="10" fontWeight="600">
-                    Tranche Soirée
+                    {peakPeriodLabel}
                   </text>
                 </svg>
               </div>
