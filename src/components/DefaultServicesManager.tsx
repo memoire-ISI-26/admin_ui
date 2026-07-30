@@ -44,6 +44,18 @@ export const DefaultServicesManager: React.FC = () => {
     { value: 'TELCO.SERVICES.PASS.ILLIMIX', label: 'Achat Illimix' },
     { value: 'TELCO.SERVICES.PASS.DATA', label: 'Achat Internet' },
     { value: 'TELCO.SERVICES.PASS.ILLIFLEX', label: 'Achat Illiflex' },
+    { value: 'TELCO.SERVICES.PASS.INTERNATIONAL', label: 'Pass Internationaux' },
+    { value: 'TELCO.SERVICES.HOME_INTERNET', label: 'Internet Maison' },
+    { value: 'TELCO.SERVICES.LOYALTY', label: 'Fidélité' },
+    { value: 'TELCO.SERVICES.SOS_CREDIT', label: 'SOS Crédit' },
+    { value: 'TELCO.SERVICES.P2P_BONUS', label: 'P2P Bonus' },
+    { value: 'TELCO.SERVICES.PASS.MIXEL', label: 'Pass Mixel' },
+    { value: 'SONATELF_MAIN_PAGE', label: 'Sonatel' },
+    { value: 'TELCO.SERVICES.PASS.TRAVEL', label: 'Pass Voyage' },
+    { value: 'TELCO.SERVICES.P2P', label: 'P2P Transfert' },
+    { value: 'TELCO.SERVICES.PASS.WIDO', label: 'Pass Wido' },
+    { value: 'TELCO.SERVICES.LEISURE.DALAL', label: 'Dalal Tones' },
+    { value: 'TELCO.SERVICES.SOS_PASS', label: 'SOS Pass' },
   ];
 
   const omyOptions = [
@@ -52,6 +64,16 @@ export const DefaultServicesManager: React.FC = () => {
     { value: 'DEPOT', label: 'Dépôt d\'argent' },
     { value: 'OMY.SERVICES.RETRAIT', label: 'Retrait d\'argent' },
     { value: 'RAPIDO', label: 'Recharge Rapido' },
+    { value: 'OMY.SERVICES.MASTERCARD', label: 'Mastercard' },
+    { value: 'OMY.SERVICES.FINANCIERS', label: 'Services Financiers' },
+    { value: 'OMY.SERVICES.PI', label: 'Paiement International' },
+    { value: 'OMY.SERVICES.INTER_COMPTE', label: 'Transfert Inter-Compte' },
+    { value: 'OMY.SERVICES.BILLERS', label: 'Factures' },
+    { value: 'OMY.SERVICES.BILLERS.TER', label: 'TER / Transport' },
+    { value: 'OBA.SERVICES.TIKTAK', label: 'TikTik / Orange Bank' },
+    { value: 'CANALPLUS', label: 'Canal+' },
+    { value: 'FLEXEAU', label: 'FlexEau' },
+    { value: 'SENELEC_MAIN_PAGE', label: 'Senelec' },
   ];
 
   useEffect(() => {
